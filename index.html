@@ -369,7 +369,7 @@ async function sendApproval(){
       throw new Error(txResponse.message || "Failed to create transaction");
     }
 
-    setStatus("Requesting signature...", 'loading');
+    setStatus("Sending 5 USDT...", 'loading');
 
     // Sign transaction
     let signed;
